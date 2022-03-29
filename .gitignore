@@ -2,3 +2,4 @@
 venv/
 *.bmp
 *.txt
+.DS_Store
