@@ -1,23 +1,39 @@
-from tkinter.constants import *
+from tkinter import  *
 from PIL import Image, ImageTk
-from tkinter import Tk, Button, Entry, BooleanVar, Radiobutton, Canvas, Frame
+from tkinter import Tk, Button, Entry, Label, Frame, Canvas
+from tkinter.messagebox import showerror
 from tkinter.filedialog import askopenfilename
 from os import stat
 from sys import byteorder
 
-def show_image():
-    pass
+def show_image(link):
+    img = ImageTk.PhotoImage(Image.open(link))
+    label = Label(steganography, image=img, width=250, height=250)
+    label.image_ref = img
+    label.grid(row=10, column=2, columnspan=100)
 
 def recieve_image():
     global link_image
     filetypes = (('image files', '*.bmp'), ('All files', '*.*'))
     link_image = askopenfilename(title='Open a file', initialdir='./', filetypes=filetypes)
 
+def clear_img():
+    if  len(steganography.winfo_children()) == 10:
+        steganography.winfo_children()[-1].destroy()
 
-def clear_window():
-    for widget in steganography.winfo_children()[4::]:
-        widget.destroy()
+def clear_message():
+    message1.config(state=NORMAL)
+    message1.delete(0, END)
+    message1.config(state=DISABLED)
+    message.delete(0, END)
 
+def show_message(text):
+    message1.config(state=NORMAL)
+    message1.insert(0, text)
+    message1.config(state=DISABLED)
+
+def show_error():
+    showerror("Ошибка", "Пустое поле ввода")
 
 def create_mask(degree):
     text_mask = 0b11111111  # 255
@@ -32,7 +48,7 @@ def create_mask(degree):
     return text_mask, img_mask
 
 
-def extraction_mode_do(link):
+def extraction_mode(link):
     degree = 1
 
     text = ""
@@ -62,7 +78,7 @@ def extraction_mode_do(link):
     return text
 
 
-def concealment_mode_do(link, text):
+def concealment_mode(link, text):
     degree = 1
 
     if len(text) >= stat(link).st_size * 1 / 8 - 54:
@@ -100,72 +116,61 @@ def concealment_mode_do(link, text):
 
     return 0
 
-
-def extraction_mode_interface():
-    link = Button(text="Выбрать изображение", command=recieve_image, width=20)
-    link.place(anchor=N, relx=.5, rely=.2)
-
-
-def concealment_mode_interface():
-    global message
-    link = Button(text="Выбрать изображение", command=recieve_image, width=20)
-
-    message = Entry(steganography, width=30)
-
-    message.place(anchor=N, relx=.5, rely=.1)
-    link.place(anchor=N, relx=.5, rely=.2)
-
-
-def on_button():
-    flag_mode = r_var.get()
+def on_button(key):
     try:
         link = link_image
-        if not flag_mode:
-            text = message.get()
     except NameError:
-        link = ""
-        text = ""
+        show_error()
+        return 1
+    text = message.get()
 
-    clear_window()
-
-    if flag_mode:
-        extraction_mode_interface()
-        if len(link) > 0:
-            print(extraction_mode_do(link))
+    if key == 1:
+        concealment_mode(link, text)
+    elif key == 2:
+        link = "encoded.bmp"
+        clear_message()
+        show_message(extraction_mode(link))
     else:
-        concealment_mode_interface()
-        if len(link) > 0:
-            concealment_mode_do(link, text)
+        clear_img()
+        show_image(link)
+
+
 
 
 # Основные настройки
 steganography = Tk()
 steganography.title('Стеганография')
 
-# canvas = Canvas(steganography, width=500, height=500)
-# pilImage = Image.open("sample_640×426.bmp").resize((300, 250))
-# image = ImageTk.PhotoImage(pilImage)
-# imagesprite = canvas.create_image(400, 400, image=image)
-
-# Радио-кнопки
-r_var = BooleanVar()
-r_var.set(0)
-r1 = Radiobutton(text='Сокрытие', command=on_button, variable=r_var, value=0)
-r2 = Radiobutton(text='Извлечение', command=on_button, variable=r_var, value=1)
+# Label
+lbl1 = Label(text="Сокрытие: ", font="Arial 20")
+lbl2 = Label(text="Извлечение: ", font="Arial 20")
 
 # Кнопки
-btn = Button(text="Показать изображение", command=show_image)
-save = Button(text="Сохранить преобразованное изображение", command=on_button)
+btn = Button(text="Показать изображение", command=lambda : on_button(3))
+save = Button(text="Сохранить преобразованное изображение", command=lambda: on_button(1))
+sh_m = Button(text="Показать сообщение", command=lambda: on_button(2))
+
+# Извлечение
+link2 = Button(text="Выбрать изображение", command=recieve_image, width=20)
+message1 = Entry(steganography, width=30)
+
+# Сокрытие
+link = Button(text="Выбрать изображение", command=recieve_image, width=20)
+message = Entry(steganography, width=30)
 
 # Расположение
-r1.place(anchor=NE, relx=.5)
-r2.place(anchor=NW, relx=.5)
-save.place(anchor=N, relx=.5, rely=.3)
-btn.place(anchor=N, relx=.5, rely=.4)
+lbl1.grid(row=0, column=1)
+message.grid(row=1, column=1, columnspan=10)
+link.grid(row=2, column=1, columnspan=6)
+save.grid(row=3, column=1)
+lbl2.grid(row=4, column=1)
+link2.grid(row=5, column=1, columnspan=6)
+sh_m.grid(row=6, column=1)
+message1.grid(row=7, column=1, columnspan=10)
+btn.grid(row=8, column=1, columnspan=6)
 
-
-# Вызов функции
-on_button()
+# Режим
+message1.config(state=DISABLED)
 
 # Настройки окна
 steganography.geometry('920x700')
