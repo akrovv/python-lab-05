@@ -1,13 +1,12 @@
 from tkinter import *
+import numpy as np
 from PIL import Image, ImageTk
 from tkinter import Tk, Button, Entry, Label
 from tkinter.messagebox import showerror
 from tkinter.filedialog import askopenfilename, asksaveasfilename
-from os import stat
-from sys import byteorder
 
 def show_image(link):
-    img = ImageTk.PhotoImage(Image.open('newimage.bmp'))
+    img = ImageTk.PhotoImage(Image.open(link))
     label = Label(steganography, image=img, width=250, height=250)
     label.image_ref = img
     label.grid(row=10, column=2, columnspan=100)
@@ -33,7 +32,6 @@ def clear_message():
     message.delete(0, END)
 
 def show_message(text):
-    text = text[:-1]
     message1.config(state=NORMAL)
     message1.insert(0, text)
     message1.config(state=DISABLED)
@@ -41,113 +39,57 @@ def show_message(text):
 def show_error():
     showerror("Ошибка", "Пустое поле ввода")
 
-def create_mask(degree):
-    text_mask = 0b11111111  # 255
-    img_mask = 0b11111111
+def extraction_mode(src):
+    img = Image.open(src, 'r')
+    array = np.array(list(img.getdata()))
+    n = 3
 
-    text_mask <<= (8 - degree)
-    text_mask %= 256  # 0-255
+    total_pixels = array.size // n
 
-    img_mask >>= degree
-    img_mask <<= degree
+    hidden_bits = ""
+    for p in range(total_pixels):
+        for q in range(0, 3):
+            hidden_bits += (bin(array[p][q])[2:][-1])
 
-    return text_mask, img_mask
+    hidden_bits = [hidden_bits[i:i + 8] for i in range(0, len(hidden_bits), 8)]
 
-
-def extraction_mode(link):
-    degree = 1
-
-    text = ""
-    encoded_bmp = open(link, 'rb')
-
-    encoded_bmp.seek(54)
-
-    text_mask, img_mask = create_mask(degree)
-    img_mask = ~img_mask
-
-    while True:
-        symbol = 0
-
-        for bits_read in range(0, 8, degree):
-            img_byte = int.from_bytes(encoded_bmp.read(1), byteorder) & img_mask
-
-            symbol <<= degree
-            symbol |= img_byte
-
-        if symbol < 32 or symbol > 126:
+    message = ""
+    for i in range(len(hidden_bits)):
+        if message[-5:] == "$t3g0":
             break
+        else:
+            message += chr(int(hidden_bits[i], 2))
+    if "$t3g0" in message:
+        return message[:-5]
 
-        text += chr(symbol)
+def concealment_mode(src, message):
+    img = Image.open(src, 'r')
+    width, height = img.size
+    array = np.array(list(img.getdata()))
+    n = 3
 
-    encoded_bmp.close()
+    total_pixels = array.size // n
 
-    return text
+    message += "$t3g0"
+    b_message = ''.join([format(ord(i), "08b") for i in message])
+    req_pixels = len(b_message)
 
-def get_pixel(width,height,image):
-    res = []
-    temp = []
-    for i in range(width):
-        for j in range(height):
-            px = image.getpixel((i, j))
-            x_1, x_2, x_3 = px
-            temp.append(x_1)
-            temp.append(x_2)
-            temp.append(x_3)
-            res.append(temp)
-            temp = []
-    return res
-
-def concealment_mode_save(link, name, array):
-    start_bmp = open(link, 'rb')
-    encode_bmp = open(name, 'wb')
-
-    first54 = start_bmp.read(54)
-    encode_bmp.write(first54)
-
-    for i in range(len(array)):
-        encode_bmp.write(array[i])
-
-    encode_bmp.write(start_bmp.read())
-
-    start_bmp.close()
-    encode_bmp.close()
-
-def concealment_mode(link, text):
-    degree = 1
-
-    if len(text) >= stat(link).st_size * 1 / 8 - 54:
+    if req_pixels > total_pixels:
         return 0
+    else:
+        index = 0
+        for p in range(total_pixels):
+            for q in range(0, 3):
+                if index < req_pixels:
+                    array[p][q] = int(bin(array[p][q])[2:9] + b_message[index], 2)
+                    index += 1
 
-    text_mask, img_mask = create_mask(degree)
+        array = array.reshape(height, width, n)
+        enc_img = Image.fromarray(array.astype('uint8'), img.mode)
+    return enc_img
 
-    image = Image.open(link)
-    width, height = image.size
-    pixels = get_pixel(width, height, image)
-    array_pixels = []
-
-    i = 0
-    j = 0
-
-    while i < len(text):
-        symbol = ord(text[i])
-        px = pixels[i][j]
-        for byte_amount in range(0, 8, degree):
-            img_byte = px & img_mask
-            bits = symbol & text_mask
-
-            bits >>= (8 - degree)
-
-            img_byte |= bits
-            array_pixels.append(img_byte.to_bytes(1, byteorder))
-
-            symbol <<= degree
-
-        i += 1
-        j += 1
-        if j >= 2:
-            j = 0
-
-    return array_pixels
+def concealment_mode_save(dest, enc):
+    enc.save(dest)
 
 def on_button(key):
     try:
@@ -158,11 +100,9 @@ def on_button(key):
     text = message.get()
 
     if key == 1:
-        concealment = concealment_mode(link, text)
-        if type(concealment) == int:
-            return 1
         name = save_img()
-        concealment_mode_save(link, name, concealment)
+        concealment = concealment_mode(link, text)
+        concealment_mode_save(name, concealment)
     elif key == 2:
         clear_message()
         show_message(extraction_mode(link))
