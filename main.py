@@ -1,249 +1,140 @@
-from tkinter import *
-from PIL import Image, ImageTk
-from tkinter import Tk, Button, Entry, Label
-from tkinter.messagebox import showerror
-from tkinter.filedialog import askopenfilename, asksaveasfilename
+from re import T
+from tkinter import Widget
+import pygame, control
+from random import randint
 
+WIDTH = 1000
+HEIGHT = 650
+FPS = 90
+YELLOW = (166, 168, 8)
+Y_B = (173, 216, 230)
+W_WW = (227, 160, 25)
 
-def show_image(img):
-    img = ImageTk.PhotoImage(img)
-    label = Label(steganography, image=img, width=250, height=250)
-    label.image_ref = img
-    label.grid(row=10, column=2, columnspan=100)
+class Car(pygame.sprite.Sprite):
+    def __init__(self, WIDTH, HEIGHT, size, path):
+        pygame.sprite.Sprite.__init__(self)
+        self.image = pygame.image.load(path).convert_alpha()
+        self.image = pygame.transform.scale(self.image,(size, size))
+        self.rect = self.image.get_rect(bottomright=(WIDTH + 400, HEIGHT + 80))
+        self.x = self.rect.x
+        self.y = self.rect.y
+        self.WIDTH = WIDTH
 
+    def update_car(self):
+        self.x -= 5
 
-def save_img(img):
-    files = (('image files', '*.bmp'), ('All files', '*.*'))
-    lk = asksaveasfilename(title=u'save file ', initialdir='./', filetypes=files)
-    img.save(str(lk))
+class Wheels(Car):
+    def __init__(self, WIDTH, HEIGHT, size, path):
+        super().__init__(WIDTH, HEIGHT, size, path)
+        self.image_up = self.image
+        self.image_right = pygame.transform.rotate(self.image, -90)
+        self.image_down = pygame.transform.flip(self.image, 0, 1)
+        self.image_left = pygame.transform.rotate(self.image, 90)
+        self.array = [self.image_up, self.image_right, self.image_down, self.image_left]
+        
 
+class Human(pygame.sprite.Sprite):
+    def __init__(self, WIDTH, HEIGHT, size, path):
+        pygame.sprite.Sprite.__init__(self)
+        self.image = pygame.image.load(path).convert_alpha()
+        self.image = pygame.transform.scale(self.image,(size, size))
+        self.rect = self.image.get_rect(center=(WIDTH / 2 - 60, HEIGHT / 4 + 350))
+        self.start_pos = self.rect.x
+        self.WIDTH = WIDTH
+    
+    def update_human(self):
+        self.rect.x -= 5
+    
+    def return_human(self):
+        if self.rect.x != self.start_pos:
+            self.rect.x += 5
 
-def recieve_image():
-    global link_image
-    filetypes = (('image files', '*.bmp'), ('All files', '*.*'))
-    link_image = askopenfilename(title='Open a file', initialdir='./', filetypes=filetypes)
-    success_for_selected()
+def draw_sun():
+    pygame.draw.circle(screen, YELLOW, (80, 60), 50)
 
+def draw_clouds(start_x):
+    pygame.draw.circle(screen, W_WW, (start_x + 90, 125), 48)
+    pygame.draw.circle(screen, W_WW, (start_x + 130, 120), 40)
+    pygame.draw.circle(screen, W_WW, (start_x + 50, 130), 30)
+    pygame.draw.circle(screen, W_WW, (start_x + 170, 130), 25)
 
-def clear_image():
-    if len(steganography.winfo_children()) == 11:
-        steganography.winfo_children()[-1].destroy()
+pygame.init()
+screen = pygame.display.set_mode((WIDTH, HEIGHT))
+pygame.display.set_caption("ZOOOOOOMBIES")
+clock = pygame.time.Clock()
+background = pygame.image.load("./img/background.png").convert()
+background = pygame.transform.scale(background,(WIDTH,HEIGHT))
 
+def main():    
+    car = Car(WIDTH, HEIGHT, 400, './img/car.png')
+    wheel1 = Wheels(WIDTH - 243, HEIGHT - 130, 100, './img/wheel.png')
+    wheel2 = Wheels(WIDTH - 25, HEIGHT - 130, 100, './img/wheel.png')
+    human = Human(WIDTH, HEIGHT, 200, './img/human.png')
 
-def clear_message():
-    message1.config(state=NORMAL)
-    message1.delete(0, END)
-    message1.config(state=DISABLED)
-    message.delete(0, END)
-
-
-def show_message(text):
-    message1.config(state=NORMAL)
-    message1.insert(0, text)
-    message1.config(state=DISABLED)
-
-
-def show_error():
-    showerror("Ошибка", "Пустое поле ввода")
-
-
-def create_mask(degree):
-    text_mask = 0b11111111  # 255
-    img_mask = 0b11111111
-
-    text_mask <<= (8 - degree)
-    text_mask %= 256  # 0-255
-
-    img_mask >>= degree
-    img_mask <<= degree
-
-    return text_mask, img_mask
-
-
-def extraction_mode(pixels, create_mask):
-    length = pixels[-1][2]
-    degree = 1
-
-    text_mask, img_mask = create_mask
-    img_mask = ~img_mask
-
-    k = 0
-    kk = 0
+    cstart = randint(0, 600)
+    cstart1 = randint(200, 600)
+    flag_human = True
+    flag_change = True
     i = 0
+    while True:
+        control.events()
+        screen.blit(background, [0,0])
+        
+        draw_clouds(cstart)
+        draw_clouds(cstart1)
+        draw_sun()
 
-    text = ''
+        cstart -= 1
+        cstart1 -= 1
+        if cstart <= -250:
+            cstart = WIDTH + 200
+        if cstart1 <= -250:
+            cstart1 = WIDTH + 200
 
-    while i < length:
-        symbol = 0
-        for bits_read in range(0, 8, degree):
-            img_byte = pixels[k][kk] & img_mask
+        # Отрисовка машины 
+        screen.blit(car.image, (car.x, car.y))
 
-            symbol <<= degree
-            symbol |= img_byte
+        # Отрисовка колес
+        screen.blit(wheel1.array[i], (wheel1.x, wheel1.y))
+        screen.blit(wheel2.array[i], (wheel2.x, wheel2.y))
+        
+        # Выход человека
+        if car.x != WIDTH / 4:
+            i += 1
+            if i >= 3:
+                i = 0
+            car.update_car()
+            wheel1.update_car()
+            wheel2.update_car()
+        else:
+            screen.blit(human.image, human.rect)
+            if human.rect.x >= -400 and flag_human:
+                human.update_human()
+            else:
+                flag_human = False
+                if flag_change:
+                    human.image = pygame.transform.flip(human.image, 1, 0)
+                    flag_change = False
+                human.return_human()
+        
+                # будет солнце
+                # затем он выбежит, за ним будет гнаться зомби, сядет в машину, собьет зомби и уедеет и так заново
 
-            kk += 1
+        if human.rect.x == human.start_pos:
+            car.update_car()
+            wheel1.update_car()
+            wheel2.update_car()
 
-            if kk == 3:
-                kk = 0
-                k += 1
+        if car.x <= -400:
+            car.x = WIDTH + 400
+            wheel1.x = WIDTH + 457
+            wheel2.x = WIDTH + 676
+            human.image = pygame.transform.flip(human.image, 1, 0)
+            flag_change = True
+            flag_human = True
 
-        k += 1
-        i += 1
-        kk = 0
+        pygame.display.update() 
+        clock.tick(FPS)
 
-        text += chr(symbol)
-
-    return text
-
-
-def receive_byte_map(image, width, height):
-    bytemap = []
-    for i in range(width):
-        for j in range(height):
-            px = image.getpixel((i, j))
-            x_1, x_2, x_3 = px
-            bytemap.append([x_1, x_2, x_3])
-    return bytemap
-
-
-def put_modified_byte_map(image, width, height, res):
-    k = 0
-    for i in range(width):
-        for j in range(height):
-            px = tuple(res[k])
-            image.putpixel((i, j), px)
-            k += 1
-
-
-def concealment_mode(image, pixels, text, create_mask):
-    degree = 1
-    text_mask, img_mask = create_mask
-
-    k = 0
-    kk = 0
-    i = 0
-
-    while i < len(text):
-        symbol = ord(text[i])
-        for byte_amount in range(0, 8, degree):
-            img_byte = pixels[k][kk] & img_mask
-            bits = symbol & text_mask
-
-            bits >>= (8 - degree)
-
-            img_byte |= bits
-            pixels[k][kk] = img_byte
-
-            symbol <<= degree
-
-            kk += 1
-
-            if kk == 3:
-                kk = 0
-                k += 1
-
-        k += 1
-        i += 1
-        kk = 0
-
-    pixels[-1][2] = len(text)
-    return image
-
-
-def success_for_save():
-    lbl = Label(text="Успех сохранения: ")
-    lbl.grid(row=3, column=0)
-
-
-def success_for_selected():
-    lbl = Label(text="Успех выбора: ")
-    lbl1 = Label(text="Успех выбора: ")
-
-    lbl.grid(row=5, column=0)
-    lbl1.grid(row=2, column=0)
-
-
-
-def success_for_concealment():
-    lbl = Label(text="Успех сокрытия: ")
-    lbl.grid(row=0, column=0)
-
-
-def success_for_extraction():
-    lbl = Label(text="Успех извлечения: ")
-    lbl.grid(row=4, column=0)
-
-
-def upload_image(link):
-    image = Image.open(link)
-    image = image.convert("RGB")
-    width, height = image.size
-    return image, width, height
-
-
-def on_button(key):
-    try:
-        link = link_image
-    except NameError:
-        show_error()
-        return 1
-
-    text = message.get()
-    img, width, height = upload_image(link)
-    byte_map = receive_byte_map(img, width, height)
-
-    if key == 1:
-        concealment = concealment_mode(img, byte_map, text, create_mask(1))
-        put_modified_byte_map(img, width, height, byte_map)
-        save_img(concealment)
-        success_for_save()
-        success_for_concealment()
-    elif key == 2:
-        clear_message()
-        show_message(extraction_mode(byte_map, create_mask(1)))
-        success_for_extraction()
-    else:
-        clear_image()
-        show_image(img)
-
-
-# Основные настройки
-steganography = Tk()
-steganography.title('Стеганография')
-
-# Label
-lbl1 = Label(text="Сокрытие: ", font="Arial 20")
-lbl2 = Label(text="Извлечение: ", font="Arial 20")
-lbl3 = Label(text="Текст:")
-
-# Кнопки
-btn = Button(text="Показать изображение", command=lambda: on_button(3))
-save = Button(text="Сохранить преобразованное изображение", command=lambda: on_button(1))
-sh_m = Button(text="Показать сообщение", command=lambda: on_button(2))
-
-# Извлечение
-link2 = Button(text="Выбрать изображение", command=recieve_image, width=20)
-message1 = Entry(steganography, width=30)
-
-# Сокрытие
-link = Button(text="Выбрать изображение", command=recieve_image, width=20)
-message = Entry(steganography, width=30)
-
-# Расположение
-lbl1.grid(row=0, column=1)
-message.grid(row=1, column=1, columnspan=10)
-lbl3.grid(row=1, column=0)
-link.grid(row=2, column=1, columnspan=10)
-save.grid(row=3, column=1)
-lbl2.grid(row=4, column=1)
-link2.grid(row=5, column=1, columnspan=6)
-sh_m.grid(row=6, column=1)
-message1.grid(row=7, column=1, columnspan=10)
-btn.grid(row=8, column=1, columnspan=6)
-
-# Режим
-message1.config(state=DISABLED)
-
-# Настройки окна
-steganography.geometry('920x700')
-steganography.mainloop()
+if __name__ == '__main__':
+    main()
