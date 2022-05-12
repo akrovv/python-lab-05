@@ -21,7 +21,7 @@ class Car(pygame.sprite.Sprite):
         self.WIDTH = WIDTH
 
     def update_car(self):
-        self.x -= 5
+        self.x -= 1
 
 class Wheels(Car):
     def __init__(self, WIDTH, HEIGHT, size, path):
@@ -43,11 +43,11 @@ class Human(pygame.sprite.Sprite):
         self.WIDTH = WIDTH
     
     def update_human(self):
-        self.rect.x -= 5
+        self.rect.x -= 1
     
     def return_human(self):
         if self.rect.x != self.start_pos:
-            self.rect.x += 5
+            self.rect.x += 1
 
 def draw_sun():
     pygame.draw.circle(screen, YELLOW, (80, 60), 50)
